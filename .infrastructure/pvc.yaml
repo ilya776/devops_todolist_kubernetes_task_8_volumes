@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: title
+  labels:
+    app: todoapp
+
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+    volumeName: pvc-file
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todoapp
+  template:
+    metadata:
+      labels:
+        app: todoapp
+    spec:
+      containers:
+        - name: todoapp-container
+          image: todoapp:latest
+          volumeMounts:
+            - mountPath: /app/data
+              name: app-data-volume
+      volumes:
+        - name: app-data-volume
+          persistentVolumeClaim:
+            claimName: title
+  
