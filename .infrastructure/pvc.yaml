@@ -4,19 +4,19 @@ metadata:
   name: todoapp-pvc
   labels:
     app: todoapp
-
 spec:
-    accessModes:
+  accessModes:
     - ReadWriteOnce
-    resources:
-      requests:
-        storage: 1Gi
-    volumeName: todoapp-pv
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: todoapp-pv
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: todoapp-deployment
+  name: todoapp
 spec:
   replicas: 1
   selector:
@@ -32,7 +32,7 @@ spec:
           image: ikulyk404/todoapp:3.0.0
           volumeMounts:
             - mountPath: /app/data
-              name: app-data-volume
+              name: todoapp-pv
       volumes:
         - name: todoapp-pv
           persistentVolumeClaim:
