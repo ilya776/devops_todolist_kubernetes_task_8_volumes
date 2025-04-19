@@ -2,12 +2,10 @@
 set -e
 
 echo "Створення PersistentVolume..."
-kubectl apply -f pv.yml
+kubectl apply -f .infrastructure/pv.yaml
 
 echo "Створення PersistentVolumeClaim..."
-kubectl apply -f pvc.yml
+kubectl apply -f .infrastructure/pvc.yaml
 
 echo "Створення об’єкта Deployment..."
-kubectl apply -f deployment.yml
-
-echo "Успішно розгорнуто всі ресурси."
+kubectl apply -f .infrastructure/deployment.yaml

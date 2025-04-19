@@ -34,8 +34,6 @@ spec:
           - name: secret-volume
             mountPath: /app/secrets
             readOnly: true
-
-
         env:
         - name: PYTHONUNBUFFERED
           valueFrom:

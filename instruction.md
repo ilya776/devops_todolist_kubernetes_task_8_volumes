@@ -1,81 +1,156 @@
-# Validation Instructions
+# Instructions to Validate the Application Setup
 
-Follow these steps to validate the application setup:
-
----
-
-## 1. Validate that the App is Running
-
-1. Ensure the Kubernetes cluster is up and running:
-   ```bash
-   kubectl cluster-info
-   ```
-
-2. Check if the application Pod(s) are running:
-   ```bash
-   kubectl get pods
-   ```
-
-   Confirm that the `STATUS` of the application's Pod(s) is `Running`.
-
-3. Verify application logs (replace `<pod-name>` with the desired Pod name):
-   ```bash
-   kubectl logs <pod-name>
-   ```
-
-   Ensure there are no errors in the logs.
-
-4. Test the application's endpoint (if applicable):
-    - If the app exposes an HTTP API, make a test request using `curl` or a browser:
-      ```bash
-      curl http://<application-service-url>
-      ```
+This document provides detailed steps to ensure that the application is correctly set up and that the `ConfigMap` and
+`Secret` resources in the cluster are properly mounted.
 
 ---
 
-## 2. Validate that ConfigMap Data is Mounted as Files in the Correct Order
+## 1. Validate the Application is Running
 
-1. Retrieve the Pod's name where the application is running:
+To validate the application is running as expected and the pod is healthy:
+
+1. **Check Pod Status**
+   Run the following command to list the pods in the namespace and verify their status:
    ```bash
-   kubectl get pods
+   kubectl get pods -n <namespace>
+   ```
+   Replace `<namespace>` with the appropriate namespace. Look for the pods associated with your application and ensure
+   they are in the `Running` state.
+
+   Example Output:
+   ```
+   NAME                      READY   STATUS    RESTARTS   AGE
+   my-app-1234567890-abcd    1/1     Running   0          5m
    ```
 
-2. Use `kubectl exec` to inspect the mounted ConfigMap directory (replace `<pod-name>` with the Pod name and
-   `<mount-path>` with the ConfigMap mount location):
+2. **Check Logs**
+   Review the logs to ensure the application is not encountering any runtime errors:
    ```bash
-   kubectl exec -it <pod-name> -- ls -l <mount-path>
+   kubectl logs <pod-name> -n <namespace>
+   ```
+   Replace `<pod-name>` with the name of the pod and `<namespace>` with the appropriate namespace.
+
+3. **Check Service Endpoint**
+   If the app exposes a service, test its accessibility:
+   - Use `kubectl get svc` to confirm the service details.
+   - Access the service endpoint using `curl` or a browser:
+     ```bash
+     curl http://<service-ip>:<port>
+     ```
+
+If the application is not running or accessible, debug by reviewing the deployments, pods, and events:
+
+```bash
+kubectl describe pod <pod-name> -n <namespace>
+kubectl get events -n <namespace>
+```
+
+---
+
+## 2. Validate ConfigMap Data is Mounted as Files in the Correct Order
+
+To confirm the proper configuration and mounting of the `ConfigMap` as files:
+
+1. **Verify Mounted Path**
+   Locate the pod where the `ConfigMap` is applied:
+   ```bash
+   kubectl get pods -n <namespace>
    ```
 
-3. Confirm the following:
-    - Files from the ConfigMap are present.
-    - Files are mounted in the correct order as per configuration.
-
-4. Optionally, inspect the contents of individual files:
+2. **Inspect Mounted Files**
+   Check the directory where the `ConfigMap` is mounted:
    ```bash
-   kubectl exec -it <pod-name> -- cat <mount-path>/<file-name>
+   kubectl exec -it <pod-name> -n <namespace> -- ls -l /mount/path/for/configmap
+   ```
+   Replace `/mount/path/for/configmap` with the actual mount path specified in your Kubernetes resource definition.
+
+   Verify that:
+   - The files from the `ConfigMap` appear in the directory.
+   - The file names and order match the expected configuration.
+
+3. **Read File Contents (Optional)**
+   Validate the actual content of the mounted files using:
+   ```bash
+   kubectl exec -it <pod-name> -n <namespace> -- cat /mount/path/for/configmap/<file-name>
+   ```
+   For example:
+   ```bash
+   kubectl exec -it my-app-1234567890-abcd -n default -- cat /etc/configmap/my-config.conf
+   ```
+
+4. **Check the Kubernetes Manifest**
+   Double-check that the `ConfigMap` is correctly referenced in the pod manifest or deployment YAML. The `volumeMounts`
+   and `volumes` sections should look similar to:
+   ```yaml
+   volumeMounts:
+     - name: config-volume
+       mountPath: /etc/configmap
+
+   volumes:
+     - name: config-volume
+       configMap:
+         name: my-configmap
    ```
 
 ---
 
-## 3. Validate that Secret Data is Mounted as a File
+## 3. Validate Secret Data is Mounted as Files
 
-1. Find the location where the Secret is mounted by inspecting the application's Pod manifest or `kubectl describe pod`:
+Verify that secrets are mounted as files in the container and contain the expected data.
+
+1. **Locate the Pod**
+   Identify the name of the pod:
    ```bash
-   kubectl describe pod <pod-name>
+   kubectl get pods -n <namespace>
    ```
 
-   Look for `volumeMounts` related to the Secret.
-
-2. List the files in the mounted Secret directory:
+2. **Inspect Mounted Secret Directory**
+   Check the directory where the secrets are mounted:
    ```bash
-   kubectl exec -it <pod-name> -- ls -l <secret-mount-path>
+   kubectl exec -it <pod-name> -n <namespace> -- ls -l /mount/path/for/secret
+   ```
+   Replace `/mount/path/for/secret` with the directory path specified in the `volumes` section of your manifest.
+
+3. **Verify Secret File Content**
+   Read the content of the secret file:
+   ```bash
+   kubectl exec -it <pod-name> -n <namespace> -- cat /mount/path/for/secret/<file-name>
+   ```
+   Example:
+   ```bash
+   kubectl exec -it my-app-1234567890-abcd -n default -- cat /etc/secret/my-secret-key.txt
    ```
 
-   Ensure there is a file corresponding to the Secret.
+4. **Review Kubernetes Manifest**
+   Ensure the secret is referenced properly in the deployment YAML. Example:
+   ```yaml
+   volumeMounts:
+     - name: secret-volume
+       mountPath: /etc/secret
 
-3. Verify the contents of the file (optional, if you have access permissions):
-   ```bash
-   kubectl exec -it <pod-name> -- cat <secret-mount-path>/<file-name>
+   volumes:
+     - name: secret-volume
+       secret:
+         secretName: my-secret
    ```
 
-   Note: Secret data might be encoded. Handle it carefully and avoid exposing sensitive information.
+   The secret files should map to the keys stored in your `Secret`.
+
+---
+
+## Troubleshooting Notes
+
+- If files are missing or incorrect, verify the names and contents of the `ConfigMap` or `Secret` using:
+  ```bash
+  kubectl get configmap my-configmap -o yaml -n <namespace>
+  kubectl get secret my-secret -o yaml --namespace <namespace>
+  ```
+  Note: Base64 decode the data in the secret before validation.
+
+- Check the pod events for mounting errors:
+  ```bash
+  kubectl describe pod <pod-name> -n <namespace>
+  ```
+
+By following these steps, you can ensure that the application, `ConfigMap`, and `Secrets` are properly set up in your
+Kubernetes environment.
